@@ -15,8 +15,8 @@ MonoBehaviour:
   baseMachine: {fileID: 11400000, guid: 457b0f3b9a8a4824590e37c2fccfbe35, type: 2}
   tree: {fileID: 11400000, guid: e4a7c61f3b0f4c445ab27074f2af2e8c, type: 2}
   treeCount: 20
-  seed: 12345
+  seed: 99999
   treePlacementMode: 1
-  noiseScale: 5
-  clusterThreshold: 0.48
+  noiseScale: 15
+  clusterThreshold: 0.5
   densityWithinClusters: 0.75

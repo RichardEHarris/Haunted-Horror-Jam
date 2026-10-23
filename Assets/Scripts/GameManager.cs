@@ -8,6 +8,7 @@ public class GameManager : MonoBehaviour
     [SerializeField]
     private List<PlaceableObjectDefinition> placeableObjectList =
         new List<PlaceableObjectDefinition>();
+    [SerializeField] private GridEnemySettings enemySettings;
 
     private void Awake()
     {
@@ -16,6 +17,72 @@ public class GameManager : MonoBehaviour
         if (gridMap == null)
         {
             Debug.LogError("No GridMap is assigned to the GameManager.", this);
+        }
+    }
+
+    public float Health => health;
+
+    public void DamageBaseMachine(float damage)
+    {
+        if (damage < 0f)
+        {
+            Debug.LogError("Base Machine damage cannot be negative.", this);
+            return;
+        }
+
+        health = Mathf.Max(0f, health - damage);
+    }
+
+    private void Start()
+    {
+        SpawnInitialEnemies();
+    }
+
+    private void SpawnInitialEnemies()
+    {
+        if (enemySettings == null || enemySettings.InitialEnemyCount == 0)
+        {
+            return;
+        }
+
+        if (gridMap == null)
+        {
+            Debug.LogError("Cannot spawn enemies because no GridMap is assigned.", this);
+            return;
+        }
+
+        if (enemySettings.EnemyPrefab == null)
+        {
+            Debug.LogError("Enemy settings do not have an enemy prefab assigned.", this);
+            return;
+        }
+
+        System.Random random = new System.Random(enemySettings.Seed);
+        int spawnedCount = 0;
+        for (int i = 0; i < enemySettings.InitialEnemyCount; i++)
+        {
+            if (!gridMap.TryGetRandomEdgeSpawnCell(random, out Vector2Int spawnCell)
+                || !gridMap.TrySpawnEnemy(
+                    enemySettings.EnemyPrefab,
+                    this,
+                    spawnCell,
+                    enemySettings.MovementSpeed,
+                    enemySettings.RetryInterval,
+                    enemySettings.BaseMachineDamage,
+                    out _))
+            {
+                break;
+            }
+
+            spawnedCount++;
+        }
+
+        if (spawnedCount < enemySettings.InitialEnemyCount)
+        {
+            Debug.LogWarning(
+                $"Spawned {spawnedCount} of {enemySettings.InitialEnemyCount} requested enemies. " +
+                "There may not be enough walkable edge cells.",
+                this);
         }
     }
 

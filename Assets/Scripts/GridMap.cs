@@ -26,6 +26,8 @@ public class GridMap : MonoBehaviour
     }
 
     private int[] cellPlacementIndices;
+    private GridEnemy[] enemyOccupants;
+    private GridEnemy[] enemyReservations;
     private readonly List<PlacementData> placements = new List<PlacementData>();
     private readonly Dictionary<GameObject, int> placementIndexByInstance =
         new Dictionary<GameObject, int>();
@@ -49,6 +51,8 @@ public class GridMap : MonoBehaviour
     private void Awake()
     {
         cellPlacementIndices = new int[gridWidth * gridHeight];
+        enemyOccupants = new GridEnemy[cellPlacementIndices.Length];
+        enemyReservations = new GridEnemy[cellPlacementIndices.Length];
         CreateGridlineDisplay();
         SetGridlinesVisible(gridLinesVisibleAtStart);
         PopulateInitialObjects();
@@ -214,6 +218,416 @@ public class GridMap : MonoBehaviour
             && cell.y < gridHeight;
     }
 
+    public bool IsCellPathable(Vector2Int cell)
+    {
+        if (!IsCellInBounds(cell) || cellPlacementIndices == null)
+        {
+            return false;
+        }
+
+        int placementIndex = cellPlacementIndices[GetCellIndex(cell)] - 1;
+        if (placementIndex < 0)
+        {
+            return true;
+        }
+
+        return placements[placementIndex].Definition.PathingTag == GridObjectPathingTag.Pathable;
+    }
+
+    public bool TryGetRandomEdgeSpawnCell(System.Random random, out Vector2Int spawnCell)
+    {
+        spawnCell = default;
+        if (random == null || cellPlacementIndices == null)
+        {
+            return false;
+        }
+
+        List<Vector2Int> availableCells = new List<Vector2Int>();
+        for (int x = 0; x < gridWidth; x++)
+        {
+            for (int y = 0; y < gridHeight; y++)
+            {
+                if (x != 0 && y != 0 && x != gridWidth - 1 && y != gridHeight - 1)
+                {
+                    continue;
+                }
+
+                Vector2Int cell = new Vector2Int(x, y);
+                if (IsCellPathable(cell) && !IsEnemyCellUnavailable(cell))
+                {
+                    availableCells.Add(cell);
+                }
+            }
+        }
+
+        if (availableCells.Count == 0)
+        {
+            return false;
+        }
+
+        spawnCell = availableCells[random.Next(availableCells.Count)];
+        return true;
+    }
+
+    public bool TrySpawnEnemy(
+        GameObject enemyPrefab,
+        GameManager gameManager,
+        Vector2Int spawnCell,
+        float movementSpeed,
+        float retryInterval,
+        float baseMachineDamage,
+        out GridEnemy enemy)
+    {
+        enemy = null;
+        if (enemyPrefab == null || !IsCellPathable(spawnCell) || IsEnemyCellUnavailable(spawnCell))
+        {
+            return false;
+        }
+
+        GameObject enemyObject = Instantiate(
+            enemyPrefab,
+            GetObjectWorldPosition(spawnCell, 1),
+            enemyPrefab.transform.rotation,
+            transform);
+        enemy = enemyObject.GetComponent<GridEnemy>();
+        if (enemy == null)
+        {
+            enemy = enemyObject.AddComponent<GridEnemy>();
+        }
+
+        enemyOccupants[GetCellIndex(spawnCell)] = enemy;
+        enemy.Initialize(
+            this,
+            gameManager,
+            spawnCell,
+            movementSpeed,
+            retryInterval,
+            baseMachineDamage);
+        return true;
+    }
+
+    public bool TryFindPathToBase(
+        GridEnemy enemy,
+        Vector2Int startCell,
+        List<Vector2Int> path)
+    {
+        path.Clear();
+        if (enemy == null || !IsCellInBounds(startCell))
+        {
+            return false;
+        }
+
+        if (IsBaseMachineCell(startCell))
+        {
+            return true;
+        }
+
+        HashSet<int> goalIndices = GetBaseMachineCells();
+        if (goalIndices.Count == 0)
+        {
+            return false;
+        }
+
+        int startIndex = GetCellIndex(startCell);
+        if (goalIndices.Contains(startIndex))
+        {
+            return true;
+        }
+
+        int cellCount = gridWidth * gridHeight;
+        int[] movementCosts = new int[cellCount];
+        int[] parentIndices = new int[cellCount];
+        bool[] visited = new bool[cellCount];
+        for (int i = 0; i < cellCount; i++)
+        {
+            movementCosts[i] = int.MaxValue;
+            parentIndices[i] = -1;
+        }
+
+        List<int> openIndices = new List<int> { startIndex };
+        movementCosts[startIndex] = 0;
+
+        while (openIndices.Count > 0)
+        {
+            int bestOpenIndex = FindLowestCostCell(openIndices, movementCosts, goalIndices);
+            int currentIndex = openIndices[bestOpenIndex];
+            openIndices.RemoveAt(bestOpenIndex);
+
+            if (goalIndices.Contains(currentIndex))
+            {
+                ReconstructPath(currentIndex, startIndex, parentIndices, path);
+                return true;
+            }
+
+            if (visited[currentIndex])
+            {
+                continue;
+            }
+
+            visited[currentIndex] = true;
+            Vector2Int currentCell = GetCellCoordinates(currentIndex);
+            for (int directionIndex = 0; directionIndex < CardinalDirections.Length; directionIndex++)
+            {
+                Vector2Int neighbour = currentCell + CardinalDirections[directionIndex];
+                bool isBaseDestination = IsBaseMachineCell(neighbour);
+                if ((!isBaseDestination && !IsCellPathable(neighbour))
+                    || IsEnemyCellUnavailableForPath(neighbour, enemy))
+                {
+                    continue;
+                }
+
+                int neighbourIndex = GetCellIndex(neighbour);
+                if (visited[neighbourIndex])
+                {
+                    continue;
+                }
+
+                int tentativeCost = movementCosts[currentIndex] + 1;
+                if (tentativeCost >= movementCosts[neighbourIndex])
+                {
+                    continue;
+                }
+
+                movementCosts[neighbourIndex] = tentativeCost;
+                parentIndices[neighbourIndex] = currentIndex;
+                if (!openIndices.Contains(neighbourIndex))
+                {
+                    openIndices.Add(neighbourIndex);
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static readonly Vector2Int[] CardinalDirections =
+    {
+        Vector2Int.up,
+        Vector2Int.right,
+        Vector2Int.down,
+        Vector2Int.left
+    };
+
+    private HashSet<int> GetBaseMachineCells()
+    {
+        HashSet<int> baseCells = new HashSet<int>();
+        if (populationSettings == null || populationSettings.BaseMachine == null)
+        {
+            return baseCells;
+        }
+
+        for (int placementIndex = 0; placementIndex < placements.Count; placementIndex++)
+        {
+            PlacementData placement = placements[placementIndex];
+            if (placement.Definition != populationSettings.BaseMachine)
+            {
+                continue;
+            }
+
+            for (int x = 0; x < placement.FootprintSideLength; x++)
+            {
+                for (int y = 0; y < placement.FootprintSideLength; y++)
+                {
+                    Vector2Int baseCell = placement.AnchorCell + new Vector2Int(x, y);
+                    baseCells.Add(GetCellIndex(baseCell));
+                }
+            }
+        }
+
+        return baseCells;
+    }
+
+    public bool IsBaseMachineCell(Vector2Int cell)
+    {
+        if (!IsCellInBounds(cell) || cellPlacementIndices == null)
+        {
+            return false;
+        }
+
+        int placementIndex = cellPlacementIndices[GetCellIndex(cell)] - 1;
+        return placementIndex >= 0
+            && populationSettings != null
+            && placements[placementIndex].Definition == populationSettings.BaseMachine;
+    }
+
+    private int FindLowestCostCell(
+        List<int> openIndices,
+        int[] movementCosts,
+        HashSet<int> goalIndices)
+    {
+        int bestPosition = 0;
+        int bestTotalCost = int.MaxValue;
+        for (int i = 0; i < openIndices.Count; i++)
+        {
+            int index = openIndices[i];
+            int totalCost = movementCosts[index] + GetDistanceToClosestGoal(index, goalIndices);
+            if (totalCost >= bestTotalCost)
+            {
+                continue;
+            }
+
+            bestTotalCost = totalCost;
+            bestPosition = i;
+        }
+
+        return bestPosition;
+    }
+
+    private int GetDistanceToClosestGoal(int cellIndex, HashSet<int> goalIndices)
+    {
+        Vector2Int cell = GetCellCoordinates(cellIndex);
+        int nearestDistance = int.MaxValue;
+        foreach (int goalIndex in goalIndices)
+        {
+            Vector2Int goal = GetCellCoordinates(goalIndex);
+            int distance = Mathf.Abs(cell.x - goal.x) + Mathf.Abs(cell.y - goal.y);
+            nearestDistance = Mathf.Min(nearestDistance, distance);
+        }
+
+        return nearestDistance;
+    }
+
+    private Vector2Int GetCellCoordinates(int cellIndex)
+    {
+        return new Vector2Int(cellIndex % gridWidth, cellIndex / gridWidth);
+    }
+
+    private void ReconstructPath(
+        int goalIndex,
+        int startIndex,
+        int[] parentIndices,
+        List<Vector2Int> path)
+    {
+        List<int> reversedIndices = new List<int>();
+        int currentIndex = goalIndex;
+        while (currentIndex != startIndex)
+        {
+            reversedIndices.Add(currentIndex);
+            currentIndex = parentIndices[currentIndex];
+            if (currentIndex < 0)
+            {
+                path.Clear();
+                return;
+            }
+        }
+
+        for (int i = reversedIndices.Count - 1; i >= 0; i--)
+        {
+            path.Add(GetCellCoordinates(reversedIndices[i]));
+        }
+    }
+
+    public bool TryBeginEnemyMove(GridEnemy enemy, Vector2Int fromCell, Vector2Int toCell)
+    {
+        if (enemy == null
+            || !IsCellInBounds(toCell)
+            || (!IsBaseMachineCell(toCell) && !IsCellPathable(toCell))
+            || !IsCellInBounds(fromCell)
+            || IsEnemyCellUnavailable(toCell))
+        {
+            return false;
+        }
+
+        int fromIndex = GetCellIndex(fromCell);
+        int toIndex = GetCellIndex(toCell);
+        if (enemyOccupants[fromIndex] != enemy)
+        {
+            return false;
+        }
+
+        if (IsBaseMachineCell(toCell))
+        {
+            return enemyReservations[toIndex] == null;
+        }
+
+        if (enemyReservations[toIndex] != null)
+        {
+            return false;
+        }
+
+        enemyReservations[toIndex] = enemy;
+        return true;
+    }
+
+    public bool CompleteEnemyMove(GridEnemy enemy, Vector2Int fromCell, Vector2Int toCell)
+    {
+        if (enemy == null || !IsCellInBounds(fromCell) || !IsCellInBounds(toCell))
+        {
+            return false;
+        }
+
+        int fromIndex = GetCellIndex(fromCell);
+        int toIndex = GetCellIndex(toCell);
+        if (enemyOccupants[fromIndex] != enemy)
+        {
+            return false;
+        }
+
+        if (IsBaseMachineCell(toCell))
+        {
+            enemyOccupants[fromIndex] = null;
+            return true;
+        }
+
+        if (enemyReservations[toIndex] != enemy)
+        {
+            return false;
+        }
+
+        enemyOccupants[fromIndex] = null;
+        enemyReservations[toIndex] = null;
+        enemyOccupants[toIndex] = enemy;
+        return true;
+    }
+
+    public void UnregisterEnemy(GridEnemy enemy, Vector2Int currentCell)
+    {
+        if (enemy == null || enemyOccupants == null)
+        {
+            return;
+        }
+
+        if (IsCellInBounds(currentCell))
+        {
+            int currentIndex = GetCellIndex(currentCell);
+            if (enemyOccupants[currentIndex] == enemy)
+            {
+                enemyOccupants[currentIndex] = null;
+            }
+        }
+
+        for (int i = 0; i < enemyReservations.Length; i++)
+        {
+            if (enemyReservations[i] == enemy)
+            {
+                enemyReservations[i] = null;
+            }
+        }
+    }
+
+    private bool IsEnemyCellUnavailable(Vector2Int cell)
+    {
+        if (enemyOccupants == null || enemyReservations == null)
+        {
+            return false;
+        }
+
+        int cellIndex = GetCellIndex(cell);
+        return enemyOccupants[cellIndex] != null || enemyReservations[cellIndex] != null;
+    }
+
+    private bool IsEnemyCellUnavailableForPath(Vector2Int cell, GridEnemy movingEnemy)
+    {
+        if (enemyOccupants == null || enemyReservations == null)
+        {
+            return false;
+        }
+
+        int cellIndex = GetCellIndex(cell);
+        return (enemyOccupants[cellIndex] != null && enemyOccupants[cellIndex] != movingEnemy)
+            || (enemyReservations[cellIndex] != null && enemyReservations[cellIndex] != movingEnemy);
+    }
+
     public bool IsValidPlacement(Vector2Int anchorCell, PlaceableObjectDefinition definition)
     {
         return IsValidPlacement(anchorCell, definition, out _);
@@ -257,6 +671,12 @@ public class GridMap : MonoBehaviour
                 if (cellPlacementIndices[GetCellIndex(cell)] != 0)
                 {
                     reason = $"Cell {cell} is already occupied.";
+                    return false;
+                }
+
+                if (IsEnemyCellUnavailable(cell))
+                {
+                    reason = $"Cell {cell} is occupied by an enemy.";
                     return false;
                 }
             }

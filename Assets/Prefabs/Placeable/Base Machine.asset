@@ -14,3 +14,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlaceableObjectDefinition
   prefab: {fileID: 5914468420930335467, guid: 4a2f9e9c31abcd7479da3e4007e53652, type: 3}
   footprintSideLength: 1
+  pathingTag: 1
