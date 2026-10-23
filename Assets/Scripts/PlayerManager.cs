@@ -3,8 +3,11 @@ using UnityEngine.InputSystem;
 
 public class PlayerManager : MonoBehaviour
 {
-    [SerializeField] private GameManager gameManager;
-    [SerializeField] private Camera placementCamera;
+    [SerializeField] private InputActionAsset inputActions;
+
+    private GameManager gameManager;
+    private Camera placementCamera;
+    private InputAction displayGridlinesAction;
 
     private void Awake()
     {
@@ -12,6 +15,34 @@ public class PlayerManager : MonoBehaviour
             gameManager = FindAnyObjectByType<GameManager>();
         if (placementCamera == null)
             placementCamera = Camera.main;
+
+        if (inputActions == null)
+        {
+            Debug.LogError("PlayerManager requires an InputActionAsset.", this);
+            return;
+        }
+
+        displayGridlinesAction = inputActions.FindAction("Player/DisplayGridlines");
+        if (displayGridlinesAction == null)
+            Debug.LogError("The Player/Display Gridlines input action could not be found.", this);
+    }
+
+    private void OnEnable()
+    {
+        if (displayGridlinesAction == null)
+            return;
+
+        displayGridlinesAction.performed += OnDisplayGridlines;
+        displayGridlinesAction.Enable();
+    }
+
+    private void OnDisable()
+    {
+        if (displayGridlinesAction == null)
+            return;
+
+        displayGridlinesAction.performed -= OnDisplayGridlines;
+        displayGridlinesAction.Disable();
     }
 
     private void Update()
@@ -22,7 +53,7 @@ public class PlayerManager : MonoBehaviour
         if (Mouse.current.leftButton.wasPressedThisFrame)
         {
             Vector2 screenPosition = Mouse.current.position.ReadValue();
-            if (!gameManager.TryPlaceFirstObjectAtScreenPosition(
+            if (!gameManager.PlaceSelectedObject(
                     screenPosition,
                     placementCamera,
                     out string failureReason))
@@ -30,5 +61,16 @@ public class PlayerManager : MonoBehaviour
                 Debug.LogWarning($"Tower placement failed: {failureReason}", this);
             }
         }
+    }
+
+    private void OnDisplayGridlines(InputAction.CallbackContext context)
+    {
+        if (gameManager == null)
+        {
+            Debug.LogError("PlayerManager requires a GameManager reference.", this);
+            return;
+        }
+
+        gameManager.ToggleGridlines();
     }
 }

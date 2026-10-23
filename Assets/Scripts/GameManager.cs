@@ -9,7 +9,22 @@ public class GameManager : MonoBehaviour
     private List<PlaceableObjectDefinition> placeableObjectList =
         new List<PlaceableObjectDefinition>();
 
-    public bool TryPlaceFirstObjectAtScreenPosition(
+    private void Awake()
+    {
+        if (gridMap == null)
+            gridMap = FindAnyObjectByType<GridMap>();
+        if (gridMap == null)
+        {
+            Debug.LogError("No GridMap is assigned to the GameManager.", this);
+        }
+    }
+
+    public void ToggleGridlines()
+    {
+        gridMap.ToggleGridlines();
+    }
+
+    public bool PlaceSelectedObject(
         Vector2 screenPosition,
         Camera placementCamera,
         out string failureReason)
@@ -49,14 +64,8 @@ public class GameManager : MonoBehaviour
 
         Vector3 worldPosition = pointerRay.GetPoint(distance);
         Vector2Int targetCell = gridMap.WorldPositionToCell(worldPosition);
-        if (!gridMap.IsValidPlacement(targetCell, definition, out failureReason))
+        if (!gridMap.TryPlaceObject(targetCell, definition, out _, out failureReason))
         {
-            return false;
-        }
-
-        if (!gridMap.TryPlaceObject(targetCell, definition, out _))
-        {
-            failureReason = "The object could not be placed after validation.";
             return false;
         }
 

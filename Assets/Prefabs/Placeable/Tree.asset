@@ -13,4 +13,4 @@ MonoBehaviour:
   m_Name: Tree
   m_EditorClassIdentifier: Assembly-CSharp::PlaceableObjectDefinition
   prefab: {fileID: 5566685746459627517, guid: 0a8d3f58326e974488592b6ed65529e4, type: 3}
-  footprintSideLength: 2
+  footprintSideLength: 1
