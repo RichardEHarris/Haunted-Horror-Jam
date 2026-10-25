@@ -67,6 +67,6 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "Haunted Horror Jam.slnx",
+    "dotnet.defaultSolution": "Haunted-Horror-Jam.slnx",
     "dotnet.enableWorkspaceBasedDevelopment": false
 }
