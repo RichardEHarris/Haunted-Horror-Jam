@@ -276,6 +276,8 @@ public class GridMap : MonoBehaviour
         float movementSpeed,
         float retryInterval,
         float baseMachineDamage,
+        float enemyMaxHealth,
+        int currencyReward,
         out GridEnemy enemy)
     {
         enemy = null;
@@ -302,7 +304,9 @@ public class GridMap : MonoBehaviour
             spawnCell,
             movementSpeed,
             retryInterval,
-            baseMachineDamage);
+            baseMachineDamage,
+            enemyMaxHealth,
+            currencyReward);
         return true;
     }
 

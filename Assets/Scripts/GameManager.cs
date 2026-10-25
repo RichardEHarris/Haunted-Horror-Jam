@@ -4,6 +4,7 @@ using UnityEngine;
 public class GameManager : MonoBehaviour
 {
     [SerializeField] private float health = 100f;
+    [SerializeField] private int currency = 0;
     [SerializeField] private GridMap gridMap;
     [SerializeField]
     private List<PlaceableObjectDefinition> placeableObjectList =
@@ -21,6 +22,7 @@ public class GameManager : MonoBehaviour
     }
 
     public float Health => health;
+    public int Currency => currency;
 
     public void DamageBaseMachine(float damage)
     {
@@ -31,6 +33,17 @@ public class GameManager : MonoBehaviour
         }
 
         health = Mathf.Max(0f, health - damage);
+    }
+
+    public void AddCurrency(int amount)
+    {
+        if (amount < 0)
+        {
+            Debug.LogError("Currency reward cannot be negative.", this);
+            return;
+        }
+
+        currency += amount;
     }
 
     private void Start()
@@ -69,6 +82,8 @@ public class GameManager : MonoBehaviour
                     enemySettings.MovementSpeed,
                     enemySettings.RetryInterval,
                     enemySettings.BaseMachineDamage,
+                    enemySettings.MaxHealth,
+                    enemySettings.CurrencyReward,
                     out _))
             {
                 break;

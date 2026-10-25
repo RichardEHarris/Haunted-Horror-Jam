@@ -10,6 +10,9 @@ public enum GridObjectPathingTag
 public class PlaceableObjectDefinition : ScriptableObject
 {
     [SerializeField] private GameObject prefab;
+    [SerializeField] private string objectName = "New Placeable Object";
+    [SerializeField] private string description = "Description of the placeable object.";
+    [SerializeField] private int cost = 1;
     [SerializeField, Range(1, 2)] private int footprintSideLength = 1;
     [SerializeField] private GridObjectPathingTag pathingTag = GridObjectPathingTag.PathingBlocker;
 

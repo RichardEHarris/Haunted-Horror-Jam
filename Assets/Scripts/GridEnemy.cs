@@ -10,9 +10,15 @@ public class GridEnemy : MonoBehaviour
     private float movementSpeed;
     private float retryInterval;
     private float baseMachineDamage;
+    private float maxHealth;
+    private float currentHealth;
+    private int currencyReward;
     private bool initialized;
+    private bool isDead;
 
     public Vector2Int CurrentCell => currentCell;
+    public float CurrentHealth => currentHealth;
+    public float MaxHealth => maxHealth;
 
     public void Initialize(
         GridMap owningGrid,
@@ -20,7 +26,9 @@ public class GridEnemy : MonoBehaviour
         Vector2Int startingCell,
         float speed,
         float pathRetryInterval,
-        float damage)
+        float damage,
+        float startingHealth,
+        int killReward)
     {
         gridMap = owningGrid;
         gameManager = owningGameManager;
@@ -28,8 +36,31 @@ public class GridEnemy : MonoBehaviour
         movementSpeed = Mathf.Max(0.01f, speed);
         retryInterval = Mathf.Max(0.05f, pathRetryInterval);
         baseMachineDamage = Mathf.Max(0f, damage);
+        maxHealth = Mathf.Max(0.01f, startingHealth);
+        currentHealth = maxHealth;
+        currencyReward = Mathf.Max(0, killReward);
         initialized = true;
         StartCoroutine(MoveTowardsBase());
+    }
+
+    public void TakeDamage(float damage)
+    {
+        if (isDead)
+        {
+            return;
+        }
+
+        if (damage < 0f)
+        {
+            Debug.LogError("Enemy damage cannot be negative.", this);
+            return;
+        }
+
+        currentHealth = Mathf.Max(0f, currentHealth - damage);
+        if (currentHealth <= 0f)
+        {
+            Die();
+        }
     }
 
     private IEnumerator MoveTowardsBase()
@@ -86,10 +117,33 @@ public class GridEnemy : MonoBehaviour
 
     private void DamageBaseMachineAndRemoveSelf()
     {
+        if (isDead)
+        {
+            return;
+        }
+
+        isDead = true;
         initialized = false;
         if (gameManager != null)
         {
             gameManager.DamageBaseMachine(baseMachineDamage);
+        }
+
+        Destroy(gameObject);
+    }
+
+    private void Die()
+    {
+        if (isDead)
+        {
+            return;
+        }
+
+        isDead = true;
+        initialized = false;
+        if (gameManager != null)
+        {
+            gameManager.AddCurrency(currencyReward);
         }
 
         Destroy(gameObject);

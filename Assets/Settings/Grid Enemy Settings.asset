@@ -18,3 +18,5 @@ MonoBehaviour:
   movementSpeed: 2
   retryInterval: 1
   baseMachineDamage: 10
+  maxHealth: 10
+  currencyReward: 5

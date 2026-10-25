@@ -9,6 +9,8 @@ public class GridEnemySettings : ScriptableObject
     [SerializeField, Min(0.01f)] private float movementSpeed = 2f;
     [SerializeField, Min(0.05f)] private float retryInterval = 1f;
     [SerializeField, Min(0f)] private float baseMachineDamage = 10f;
+    [SerializeField, Min(0.01f)] private float maxHealth = 10f;
+    [SerializeField, Min(0)] private int currencyReward = 5;
 
     public GameObject EnemyPrefab => enemyPrefab;
     public int InitialEnemyCount => initialEnemyCount;
@@ -16,6 +18,8 @@ public class GridEnemySettings : ScriptableObject
     public float MovementSpeed => movementSpeed;
     public float RetryInterval => retryInterval;
     public float BaseMachineDamage => baseMachineDamage;
+    public float MaxHealth => maxHealth;
+    public int CurrencyReward => currencyReward;
 
     private void OnValidate()
     {
@@ -23,5 +27,7 @@ public class GridEnemySettings : ScriptableObject
         movementSpeed = Mathf.Max(0.01f, movementSpeed);
         retryInterval = Mathf.Max(0.05f, retryInterval);
         baseMachineDamage = Mathf.Max(0f, baseMachineDamage);
+        maxHealth = Mathf.Max(0.01f, maxHealth);
+        currencyReward = Mathf.Max(0, currencyReward);
     }
 }
