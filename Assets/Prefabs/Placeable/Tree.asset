@@ -13,5 +13,8 @@ MonoBehaviour:
   m_Name: Tree
   m_EditorClassIdentifier: Assembly-CSharp::PlaceableObjectDefinition
   prefab: {fileID: 5566685746459627517, guid: 0a8d3f58326e974488592b6ed65529e4, type: 3}
+  objectName: New Placeable Object
+  description: Description of the placeable object.
+  cost: 1
   footprintSideLength: 1
   pathingTag: 1
