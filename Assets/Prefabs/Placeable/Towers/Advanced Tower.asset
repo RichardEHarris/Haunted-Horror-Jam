@@ -10,8 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a6e2388e5f3a44db842ab9b2ac94e669, type: 3}
-  m_Name: Basic Tower
+  m_Name: Advanced Tower
   m_EditorClassIdentifier: Assembly-CSharp::PlaceableObjectDefinition
-  prefab: {fileID: 6466983988474564972, guid: 85a4e335228f2e74596edb155315f625, type: 3}
+  prefab: {fileID: 6466983988474564972, guid: b95b15aad1ffb8a4ba51e2d4ccb126ad, type: 3}
+  objectName: Advanced Tower
+  description: Shoots stronger projectiles at enemies
+  cost: 5
   footprintSideLength: 1
   pathingTag: 1

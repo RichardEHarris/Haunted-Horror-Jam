@@ -414,10 +414,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameManager
   health: 100
+  currency: 0
   gridMap: {fileID: 1029092689}
   placeableObjectList:
   - {fileID: 11400000, guid: 18796fbfbeaa25547a70157b915765c0, type: 2}
-  - {fileID: 11400000, guid: e4a7c61f3b0f4c445ab27074f2af2e8c, type: 2}
+  - {fileID: 11400000, guid: ef8aa2b61962ad749990c981c42f77a2, type: 2}
   enemySettings: {fileID: 11400000, guid: 9e3e20ae45b736a4c99ca1e9a23879e9, type: 2}
 --- !u!4 &525578437
 Transform:

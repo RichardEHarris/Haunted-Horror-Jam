@@ -19,6 +19,7 @@ public class GridEnemy : MonoBehaviour
     public Vector2Int CurrentCell => currentCell;
     public float CurrentHealth => currentHealth;
     public float MaxHealth => maxHealth;
+    public bool IsAlive => initialized && !isDead;
 
     public void Initialize(
         GridMap owningGrid,

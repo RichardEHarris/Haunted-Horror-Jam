@@ -9,8 +9,9 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1102382858948010028}
+  - component: {fileID: 4682681936646656699}
   m_Layer: 0
-  m_Name: Basic Tower
+  m_Name: Advanced Tower
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -32,6 +33,25 @@ Transform:
   - {fileID: 8227745713249288154}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4682681936646656699
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6466983988474564972}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0de607e9727849fe81ddbbdadc6725d1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BehaviourShooter
+  tickInterval: 0.25
+  projectileSpawnPoint: {fileID: 1102382858948010028}
+  projectilePrefab: {fileID: 3008414593082359815, guid: 6ae9dba581ccf114db9c0831e76eeba5, type: 3}
+  targetRange: 8
+  projectileSpeed: 8
+  damage: 2
+  projectileLifetime: 5
 --- !u!1 &8587242536968225489
 GameObject:
   m_ObjectHideFlags: 0
@@ -99,7 +119,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: b34b07a45ba63ce47896c9e674f3a7a7, type: 2}
+  - {fileID: 2100000, guid: c2e40fa84d53ccd428f640eac126b1fb, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

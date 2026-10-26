@@ -28,17 +28,34 @@ public class GridMap : MonoBehaviour
     private int[] cellPlacementIndices;
     private GridEnemy[] enemyOccupants;
     private GridEnemy[] enemyReservations;
+    private readonly HashSet<GridEnemy> activeEnemies = new HashSet<GridEnemy>();
+    private readonly List<BehaviourScript> activePlaceableBehaviours =
+        new List<BehaviourScript>();
     private readonly List<PlacementData> placements = new List<PlacementData>();
     private readonly Dictionary<GameObject, int> placementIndexByInstance =
         new Dictionary<GameObject, int>();
     private GameObject gridLinesRoot;
     private Material runtimeGridLineMaterial;
+    private GameManager gameManager;
+    private bool hasStarted;
 
     public int GridWidth => gridWidth;
     public int GridHeight => gridHeight;
     public float CellSize => cellSize;
     public Vector3 Origin => origin;
     public bool AreGridlinesVisible => gridLinesRoot != null && gridLinesRoot.activeSelf;
+    public GameManager GameManager
+    {
+        get
+        {
+            if (gameManager == null)
+            {
+                gameManager = FindAnyObjectByType<GameManager>();
+            }
+
+            return gameManager;
+        }
+    }
 
     private void OnValidate()
     {
@@ -58,11 +75,52 @@ public class GridMap : MonoBehaviour
         PopulateInitialObjects();
     }
 
+    private void Start()
+    {
+        hasStarted = true;
+        foreach (BehaviourScript behaviour in activePlaceableBehaviours)
+        {
+            if (behaviour != null)
+            {
+                behaviour.Initialize(this);
+            }
+        }
+    }
+
     private void OnDestroy()
     {
+        foreach (BehaviourScript behaviour in activePlaceableBehaviours)
+        {
+            if (behaviour != null)
+            {
+                behaviour.StopBehaviour();
+            }
+        }
+
         if (runtimeGridLineMaterial != null)
         {
             Destroy(runtimeGridLineMaterial);
+        }
+    }
+
+    private void Update()
+    {
+        int behaviourCount = activePlaceableBehaviours.Count;
+        for (int i = 0; i < behaviourCount; i++)
+        {
+            BehaviourScript behaviour = activePlaceableBehaviours[i];
+            if (behaviour != null)
+            {
+                behaviour.AdvanceTick(Time.deltaTime);
+            }
+        }
+
+        for (int i = activePlaceableBehaviours.Count - 1; i >= 0; i--)
+        {
+            if (activePlaceableBehaviours[i] == null)
+            {
+                activePlaceableBehaviours.RemoveAt(i);
+            }
         }
     }
 
@@ -298,6 +356,7 @@ public class GridMap : MonoBehaviour
         }
 
         enemyOccupants[GetCellIndex(spawnCell)] = enemy;
+        activeEnemies.Add(enemy);
         enemy.Initialize(
             this,
             gameManager,
@@ -586,6 +645,7 @@ public class GridMap : MonoBehaviour
 
     public void UnregisterEnemy(GridEnemy enemy, Vector2Int currentCell)
     {
+        activeEnemies.Remove(enemy);
         if (enemy == null || enemyOccupants == null)
         {
             return;
@@ -733,7 +793,54 @@ public class GridMap : MonoBehaviour
             cellPlacementIndices[GetCellIndex(cell)] = placementIndex + 1;
         }
 
+        BehaviourScript[] behaviours =
+            placedObject.GetComponentsInChildren<BehaviourScript>(true);
+        foreach (BehaviourScript behaviour in behaviours)
+        {
+            activePlaceableBehaviours.Add(behaviour);
+            if (hasStarted)
+            {
+                behaviour.Initialize(this);
+            }
+        }
+
         return true;
+    }
+
+    public bool TryGetClosestEnemy(Vector3 position, float range, out GridEnemy closestEnemy)
+    {
+        closestEnemy = null;
+        if (range < 0f)
+        {
+            return false;
+        }
+
+        float closestDistanceSquared = range * range;
+        foreach (GridEnemy enemy in activeEnemies)
+        {
+            if (enemy == null || !enemy.IsAlive)
+            {
+                continue;
+            }
+
+            float distanceSquared = (enemy.transform.position - position).sqrMagnitude;
+            if (distanceSquared <= closestDistanceSquared)
+            {
+                closestDistanceSquared = distanceSquared;
+                closestEnemy = enemy;
+            }
+        }
+
+        return closestEnemy != null;
+    }
+
+    internal void UnregisterPlaceableBehaviour(BehaviourScript behaviour)
+    {
+        int index = activePlaceableBehaviours.IndexOf(behaviour);
+        if (index >= 0)
+        {
+            activePlaceableBehaviours[index] = null;
+        }
     }
 
     private void PopulateInitialObjects()
@@ -885,6 +992,13 @@ public class GridMap : MonoBehaviour
         }
 
         PlacementData placement = placements[placementIndex];
+        BehaviourScript[] behaviours =
+            placedObject.GetComponentsInChildren<BehaviourScript>(true);
+        foreach (BehaviourScript behaviour in behaviours)
+        {
+            behaviour.StopBehaviour();
+        }
+
         foreach (Vector2Int cell in GetFootprintCells(
                      placement.AnchorCell,
                      placement.FootprintSideLength))

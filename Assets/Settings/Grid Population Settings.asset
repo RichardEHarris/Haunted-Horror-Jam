@@ -17,6 +17,6 @@ MonoBehaviour:
   treeCount: 20
   seed: 99999
   treePlacementMode: 1
-  noiseScale: 15
-  clusterThreshold: 0.5
-  densityWithinClusters: 0.75
+  noiseScale: 1
+  clusterThreshold: 0.1
+  densityWithinClusters: 0.169
