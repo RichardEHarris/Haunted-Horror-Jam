@@ -12,11 +12,15 @@ public class PlaceableObjectDefinition : ScriptableObject
     [SerializeField] private GameObject prefab;
     [SerializeField] private string objectName = "New Placeable Object";
     [SerializeField] private string description = "Description of the placeable object.";
+    [SerializeField] private Sprite icon;
     [SerializeField] private int cost = 1;
     [SerializeField, Range(1, 2)] private int footprintSideLength = 1;
     [SerializeField] private GridObjectPathingTag pathingTag = GridObjectPathingTag.PathingBlocker;
 
     public GameObject Prefab => prefab;
+    public string ObjectName => objectName;
+    public Sprite Icon => icon;
+    public int Cost => cost;
     public int FootprintSideLength => footprintSideLength;
     public int FootprintCellCount => footprintSideLength * footprintSideLength;
     public GridObjectPathingTag PathingTag => pathingTag;

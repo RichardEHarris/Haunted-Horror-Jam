@@ -15,6 +15,7 @@ MonoBehaviour:
   prefab: {fileID: 6466983988474564972, guid: b95b15aad1ffb8a4ba51e2d4ccb126ad, type: 3}
   objectName: Advanced Tower
   description: Shoots stronger projectiles at enemies
+  icon: {fileID: 21300000, guid: 369adc31332113241907229e49f8c621, type: 3}
   cost: 5
   footprintSideLength: 1
   pathingTag: 1

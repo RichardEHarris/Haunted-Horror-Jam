@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 public class PlayerManager : MonoBehaviour
@@ -50,7 +51,8 @@ public class PlayerManager : MonoBehaviour
         if (gameManager == null || placementCamera == null || Mouse.current == null)
             return;
         
-        if (Mouse.current.leftButton.wasPressedThisFrame)
+        if (Mouse.current.leftButton.wasPressedThisFrame
+            && (EventSystem.current == null || !EventSystem.current.IsPointerOverGameObject()))
         {
             Vector2 screenPosition = Mouse.current.position.ReadValue();
             if (!gameManager.PlaceSelectedObject(

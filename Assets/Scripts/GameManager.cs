@@ -10,6 +10,9 @@ public class GameManager : MonoBehaviour
     private List<PlaceableObjectDefinition> placeableObjectList =
         new List<PlaceableObjectDefinition>();
     [SerializeField] private GridEnemySettings enemySettings;
+    [SerializeField] private TowerSelectionMenu towerSelectionMenu;
+
+    private PlaceableObjectDefinition selectedPlaceableObject;
 
     private void Awake()
     {
@@ -19,10 +22,52 @@ public class GameManager : MonoBehaviour
         {
             Debug.LogError("No GridMap is assigned to the GameManager.", this);
         }
+
+        if (placeableObjectList != null)
+        {
+            foreach (PlaceableObjectDefinition definition in placeableObjectList)
+            {
+                if (definition != null)
+                {
+                    selectedPlaceableObject = definition;
+                    break;
+                }
+            }
+        }
+
+        if (selectedPlaceableObject == null)
+        {
+            Debug.LogWarning("No valid placeable objects are assigned to the GameManager.", this);
+        }
+
+        if (towerSelectionMenu == null)
+        {
+            towerSelectionMenu = GetComponent<TowerSelectionMenu>();
+        }
+
+        towerSelectionMenu.Initialize(this);
     }
 
     public float Health => health;
     public int Currency => currency;
+    public IReadOnlyList<PlaceableObjectDefinition> PlaceableObjects => placeableObjectList;
+    public PlaceableObjectDefinition SelectedPlaceableObject => selectedPlaceableObject;
+
+    public bool SelectPlaceableObject(PlaceableObjectDefinition definition)
+    {
+        if (definition == null || placeableObjectList == null || !placeableObjectList.Contains(definition))
+        {
+            return false;
+        }
+
+        selectedPlaceableObject = definition;
+        if (towerSelectionMenu != null)
+        {
+            towerSelectionMenu.RefreshSelection();
+        }
+
+        return true;
+    }
 
     public void DamageBaseMachine(float damage)
     {
@@ -117,16 +162,9 @@ public class GameManager : MonoBehaviour
             return false;
         }
 
-        if (placeableObjectList == null || placeableObjectList.Count == 0)
+        if (selectedPlaceableObject == null)
         {
-            failureReason = "The placeable object list is empty.";
-            return false;
-        }
-
-        PlaceableObjectDefinition definition = placeableObjectList[0];
-        if (definition == null)
-        {
-            failureReason = "The first placeable object definition is not assigned.";
+            failureReason = "No placeable object is selected.";
             return false;
         }
 
@@ -146,7 +184,11 @@ public class GameManager : MonoBehaviour
 
         Vector3 worldPosition = pointerRay.GetPoint(distance);
         Vector2Int targetCell = gridMap.WorldPositionToCell(worldPosition);
-        if (!gridMap.TryPlaceObject(targetCell, definition, out _, out failureReason))
+        if (!gridMap.TryPlaceObject(
+                targetCell,
+                selectedPlaceableObject,
+                out _,
+                out failureReason))
         {
             return false;
         }
