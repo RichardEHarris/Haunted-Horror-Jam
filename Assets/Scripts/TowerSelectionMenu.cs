@@ -6,7 +6,7 @@ using UnityEngine.UI;
 
 public class TowerSelectionMenu : MonoBehaviour
 {
-    private const float TowerIconSize = 64f;
+    private const float TowerIconSize = 86f;
 
     private sealed class MenuEntry
     {

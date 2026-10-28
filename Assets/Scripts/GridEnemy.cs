@@ -40,6 +40,7 @@ public class GridEnemy : MonoBehaviour
         maxHealth = Mathf.Max(0.01f, startingHealth);
         currentHealth = maxHealth;
         currencyReward = Mathf.Max(0, killReward);
+
         initialized = true;
         StartCoroutine(MoveTowardsBase());
     }
@@ -58,6 +59,8 @@ public class GridEnemy : MonoBehaviour
         }
 
         currentHealth = Mathf.Max(0f, currentHealth - damage);
+        SetHealthBar(currentHealth, maxHealth);
+
         if (currentHealth <= 0f)
         {
             Die();
@@ -113,6 +116,21 @@ public class GridEnemy : MonoBehaviour
                 DamageBaseMachineAndRemoveSelf();
                 yield break;
             }
+        }
+    }
+
+    public void SetHealthBar(float currentHealth, float maxHealth)
+    {
+        if (maxHealth < 0f)
+        {
+            maxHealth = 0f;
+        }
+
+        RectTransform fillImage = transform.Find("Healthbar/Background/Fill").GetComponent<RectTransform>();
+
+        if (fillImage != null)
+        {
+            fillImage.sizeDelta = new Vector2(Mathf.Clamp01(currentHealth / maxHealth) * 100, fillImage.sizeDelta.y);
         }
     }
 
