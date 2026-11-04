@@ -17,4 +17,5 @@ MonoBehaviour:
   description: Description of the placeable object.
   cost: 1
   footprintSideLength: 1
+  buildRadius: 5
   pathingTag: 0

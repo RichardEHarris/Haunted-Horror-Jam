@@ -7,13 +7,16 @@ public class GridMap : MonoBehaviour
     [SerializeField, Min(1)] private int gridWidth = 10;
     [SerializeField, Min(1)] private int gridHeight = 10;
     [SerializeField, Min(0.0001f)] private float cellSize = 1f;
+    [SerializeField, Min(0), Tooltip("Extra cells to include around the requested cell when expanding.")]
+    private int expansionMargin = 5;
     [Tooltip("Center point of the grid in world space.")]
     [SerializeField] private Vector3 origin;
     [SerializeField] private GridPopulationSettings populationSettings;
 
     [Header("Gridline Display")]
     [SerializeField] private Material gridLineMaterial;
-    [SerializeField] private Color gridLineColor = Color.white;
+    [SerializeField] private Color gridLineColor = Color.black;
+    [SerializeField] private Color unbuildableGridLineColor = Color.red;
     [SerializeField, Min(0.001f)] private float gridLineWidth = 0.02f;
     [SerializeField] private float gridLineHeightOffset = 0.01f;
     [SerializeField] private bool gridLinesVisibleAtStart = true;
@@ -28,6 +31,8 @@ public class GridMap : MonoBehaviour
     private int[] cellPlacementIndices;
     private GridEnemy[] enemyOccupants;
     private GridEnemy[] enemyReservations;
+    private Vector2Int minimumCell;
+    private Vector3 gridAnchorWorldPosition;
     private readonly HashSet<GridEnemy> activeEnemies = new HashSet<GridEnemy>();
     private readonly List<BehaviourScript> activePlaceableBehaviours =
         new List<BehaviourScript>();
@@ -38,6 +43,7 @@ public class GridMap : MonoBehaviour
     private Material runtimeGridLineMaterial;
     private GameManager gameManager;
     private bool hasStarted;
+    private bool isInitialized;
 
     public int GridWidth => gridWidth;
     public int GridHeight => gridHeight;
@@ -57,22 +63,41 @@ public class GridMap : MonoBehaviour
         }
     }
 
+    private void RebuildGridlineDisplay()
+    {
+        bool wasVisible = AreGridlinesVisible;
+        GameObject previousGridLinesRoot = gridLinesRoot;
+        CreateGridlineDisplay();
+        SetGridlinesVisible(wasVisible);
+
+        if (previousGridLinesRoot != null)
+        {
+            Destroy(previousGridLinesRoot);
+        }
+    }
+
     private void OnValidate()
     {
         gridWidth = Mathf.Max(1, gridWidth);
         gridHeight = Mathf.Max(1, gridHeight);
         cellSize = Mathf.Max(0.0001f, cellSize);
+        expansionMargin = Mathf.Max(0, expansionMargin);
         gridLineWidth = Mathf.Max(0.001f, gridLineWidth);
     }
 
     private void Awake()
     {
+        gridAnchorWorldPosition = origin + new Vector3(
+            -gridWidth * cellSize * 0.5f,
+            0f,
+            -gridHeight * cellSize * 0.5f);
         cellPlacementIndices = new int[gridWidth * gridHeight];
         enemyOccupants = new GridEnemy[cellPlacementIndices.Length];
         enemyReservations = new GridEnemy[cellPlacementIndices.Length];
         CreateGridlineDisplay();
         SetGridlinesVisible(gridLinesVisibleAtStart);
         PopulateInitialObjects();
+        isInitialized = true;
     }
 
     private void Start()
@@ -153,28 +178,89 @@ public class GridMap : MonoBehaviour
 
         Vector3 gridStart = GetGridStartPosition();
         float lineY = origin.y + gridLineHeightOffset;
-        float gridEndX = gridStart.x + gridWidth * cellSize;
-        float gridEndZ = gridStart.z + gridHeight * cellSize;
-
-        for (int x = 0; x <= gridWidth; x++)
+        for (int xOffset = 0; xOffset <= gridWidth; xOffset++)
         {
-            float lineX = gridStart.x + x * cellSize;
-            CreateGridline(
-                $"Gridline X {x}",
-                new Vector3(lineX, lineY, gridStart.z),
-                new Vector3(lineX, lineY, gridEndZ),
-                lineMaterial);
+            float lineX = gridStart.x + xOffset * cellSize;
+            int segmentStartOffset = 0;
+            bool segmentIsBuildable = IsVerticalGridlineBuildable(xOffset, 0);
+            for (int yOffset = 1; yOffset <= gridHeight; yOffset++)
+            {
+                bool isLastSegment = yOffset == gridHeight;
+                bool nextSegmentIsBuildable = !isLastSegment
+                    && IsVerticalGridlineBuildable(xOffset, yOffset);
+                if (isLastSegment || nextSegmentIsBuildable != segmentIsBuildable)
+                {
+                    CreateGridline(
+                        $"Gridline X {xOffset} Segment {segmentStartOffset}",
+                        new Vector3(
+                            lineX,
+                            lineY,
+                            gridStart.z + segmentStartOffset * cellSize),
+                        new Vector3(
+                            lineX,
+                            lineY,
+                            gridStart.z + yOffset * cellSize),
+                        lineMaterial,
+                        segmentIsBuildable ? gridLineColor : unbuildableGridLineColor);
+                }
+
+                if (!isLastSegment && nextSegmentIsBuildable != segmentIsBuildable)
+                {
+                    segmentStartOffset = yOffset;
+                    segmentIsBuildable = nextSegmentIsBuildable;
+                }
+            }
         }
 
-        for (int z = 0; z <= gridHeight; z++)
+        for (int yOffset = 0; yOffset <= gridHeight; yOffset++)
         {
-            float lineZ = gridStart.z + z * cellSize;
-            CreateGridline(
-                $"Gridline Z {z}",
-                new Vector3(gridStart.x, lineY, lineZ),
-                new Vector3(gridEndX, lineY, lineZ),
-                lineMaterial);
+            float lineZ = gridStart.z + yOffset * cellSize;
+            int segmentStartOffset = 0;
+            bool segmentIsBuildable = IsHorizontalGridlineBuildable(0, yOffset);
+            for (int xOffset = 1; xOffset <= gridWidth; xOffset++)
+            {
+                bool isLastSegment = xOffset == gridWidth;
+                bool nextSegmentIsBuildable = !isLastSegment
+                    && IsHorizontalGridlineBuildable(xOffset, yOffset);
+                if (isLastSegment || nextSegmentIsBuildable != segmentIsBuildable)
+                {
+                    CreateGridline(
+                        $"Gridline Z {yOffset} Segment {segmentStartOffset}",
+                        new Vector3(
+                            gridStart.x + segmentStartOffset * cellSize,
+                            lineY,
+                            lineZ),
+                        new Vector3(
+                            gridStart.x + xOffset * cellSize,
+                            lineY,
+                            lineZ),
+                        lineMaterial,
+                        segmentIsBuildable ? gridLineColor : unbuildableGridLineColor);
+                }
+
+                if (!isLastSegment && nextSegmentIsBuildable != segmentIsBuildable)
+                {
+                    segmentStartOffset = xOffset;
+                    segmentIsBuildable = nextSegmentIsBuildable;
+                }
+            }
         }
+    }
+
+    private bool IsVerticalGridlineBuildable(int xOffset, int yOffset)
+    {
+        Vector2Int leftCell = new Vector2Int(
+            minimumCell.x + xOffset - 1,
+            minimumCell.y + yOffset);
+        return IsCellBuildable(leftCell) || IsCellBuildable(leftCell + Vector2Int.right);
+    }
+
+    private bool IsHorizontalGridlineBuildable(int xOffset, int yOffset)
+    {
+        Vector2Int lowerCell = new Vector2Int(
+            minimumCell.x + xOffset,
+            minimumCell.y + yOffset - 1);
+        return IsCellBuildable(lowerCell) || IsCellBuildable(lowerCell + Vector2Int.up);
     }
 
     private Material GetGridlineMaterial()
@@ -184,10 +270,10 @@ public class GridMap : MonoBehaviour
             return gridLineMaterial;
         }
 
-        Shader lineShader = Shader.Find("Universal Render Pipeline/Unlit");
+        Shader lineShader = Shader.Find("Sprites/Default");
         if (lineShader == null)
         {
-            lineShader = Shader.Find("Sprites/Default");
+            lineShader = Shader.Find("Universal Render Pipeline/Unlit");
         }
 
         if (lineShader == null)
@@ -204,7 +290,8 @@ public class GridMap : MonoBehaviour
         string lineName,
         Vector3 startPosition,
         Vector3 endPosition,
-        Material lineMaterial)
+        Material lineMaterial,
+        Color color)
     {
         GameObject lineObject = new GameObject(lineName);
         lineObject.transform.SetParent(gridLinesRoot.transform, false);
@@ -216,8 +303,8 @@ public class GridMap : MonoBehaviour
         lineRenderer.SetPosition(1, endPosition);
         lineRenderer.startWidth = gridLineWidth;
         lineRenderer.endWidth = gridLineWidth;
-        lineRenderer.startColor = gridLineColor;
-        lineRenderer.endColor = gridLineColor;
+        lineRenderer.startColor = color;
+        lineRenderer.endColor = color;
         lineRenderer.sharedMaterial = lineMaterial;
         lineRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         lineRenderer.receiveShadows = false;
@@ -225,8 +312,7 @@ public class GridMap : MonoBehaviour
 
     public Vector2Int WorldPositionToCell(Vector3 worldPosition)
     {
-        Vector3 gridStart = GetGridStartPosition();
-        Vector3 localPosition = worldPosition - gridStart;
+        Vector3 localPosition = worldPosition - gridAnchorWorldPosition;
         return new Vector2Int(
             Mathf.FloorToInt(localPosition.x / cellSize),
             Mathf.FloorToInt(localPosition.z / cellSize));
@@ -243,10 +329,96 @@ public class GridMap : MonoBehaviour
 
     private Vector3 GetGridStartPosition()
     {
-        return origin + new Vector3(
-            -gridWidth * cellSize * 0.5f,
+        return gridAnchorWorldPosition + new Vector3(
+            minimumCell.x * cellSize,
             0f,
-            -gridHeight * cellSize * 0.5f);
+            minimumCell.y * cellSize);
+    }
+
+    public bool ExpandToInclude(Vector2Int cell)
+    {
+        if (cellPlacementIndices == null)
+        {
+            Debug.LogError("The grid must be initialized before it can be expanded.", this);
+            return false;
+        }
+
+        if (IsCellInBounds(cell))
+        {
+            return true;
+        }
+
+        long requestedMinX = (long)cell.x - expansionMargin;
+        long requestedMinY = (long)cell.y - expansionMargin;
+        long requestedMaxX = (long)cell.x + expansionMargin + 1;
+        long requestedMaxY = (long)cell.y + expansionMargin + 1;
+
+        long oldMinX = minimumCell.x;
+        long oldMinY = minimumCell.y;
+        long oldMaxX = oldMinX + gridWidth;
+        long oldMaxY = oldMinY + gridHeight;
+        long newMinX = System.Math.Min(oldMinX, requestedMinX);
+        long newMinY = System.Math.Min(oldMinY, requestedMinY);
+        long newMaxX = System.Math.Max(oldMaxX, requestedMaxX);
+        long newMaxY = System.Math.Max(oldMaxY, requestedMaxY);
+        long newWidth = newMaxX - newMinX;
+        long newHeight = newMaxY - newMinY;
+
+        if (newMinX < int.MinValue
+            || newMinY < int.MinValue
+            || newMaxX > (long)int.MaxValue + 1
+            || newMaxY > (long)int.MaxValue + 1
+            || newWidth > int.MaxValue
+            || newHeight > int.MaxValue
+            || newWidth * newHeight > int.MaxValue)
+        {
+            Debug.LogError($"Cannot expand the grid to include cell {cell}.", this);
+            return false;
+        }
+
+        int expandedWidth = (int)newWidth;
+        int expandedHeight = (int)newHeight;
+        int expandedMinX = (int)newMinX;
+        int expandedMinY = (int)newMinY;
+        int xOffset = minimumCell.x - expandedMinX;
+        int yOffset = minimumCell.y - expandedMinY;
+        int expandedCellCount = expandedWidth * expandedHeight;
+        int[] expandedPlacementIndices = new int[expandedCellCount];
+        GridEnemy[] expandedEnemyOccupants = new GridEnemy[expandedCellCount];
+        GridEnemy[] expandedEnemyReservations = new GridEnemy[expandedCellCount];
+
+        for (int y = 0; y < gridHeight; y++)
+        {
+            int oldRowStart = y * gridWidth;
+            int newRowStart = (y + yOffset) * expandedWidth + xOffset;
+            System.Array.Copy(
+                cellPlacementIndices,
+                oldRowStart,
+                expandedPlacementIndices,
+                newRowStart,
+                gridWidth);
+            System.Array.Copy(
+                enemyOccupants,
+                oldRowStart,
+                expandedEnemyOccupants,
+                newRowStart,
+                gridWidth);
+            System.Array.Copy(
+                enemyReservations,
+                oldRowStart,
+                expandedEnemyReservations,
+                newRowStart,
+                gridWidth);
+        }
+
+        minimumCell = new Vector2Int(expandedMinX, expandedMinY);
+        gridWidth = expandedWidth;
+        gridHeight = expandedHeight;
+        cellPlacementIndices = expandedPlacementIndices;
+        enemyOccupants = expandedEnemyOccupants;
+        enemyReservations = expandedEnemyReservations;
+        RebuildGridlineDisplay();
+        return true;
     }
 
     public List<Vector2Int> GetFootprintCells(Vector2Int anchorCell, int footprintSideLength)
@@ -270,10 +442,43 @@ public class GridMap : MonoBehaviour
 
     public bool IsCellInBounds(Vector2Int cell)
     {
-        return cell.x >= 0
-            && cell.y >= 0
-            && cell.x < gridWidth
-            && cell.y < gridHeight;
+        return cell.x >= minimumCell.x
+            && cell.y >= minimumCell.y
+            && (long)cell.x < (long)minimumCell.x + gridWidth
+            && (long)cell.y < (long)minimumCell.y + gridHeight;
+    }
+
+    public bool IsCellBuildable(Vector2Int cell)
+    {
+        if (!IsCellInBounds(cell))
+        {
+            return false;
+        }
+
+        for (int i = 0; i < placements.Count; i++)
+        {
+            PlacementData placement = placements[i];
+            if (placement.Definition == null || placement.Definition.BuildRadius <= 0)
+            {
+                continue;
+            }
+
+            long radius = placement.Definition.BuildRadius;
+            long maxFootprintX = (long)placement.AnchorCell.x + placement.FootprintSideLength - 1;
+            long maxFootprintY = (long)placement.AnchorCell.y + placement.FootprintSideLength - 1;
+            long distanceX = cell.x < placement.AnchorCell.x
+                ? (long)placement.AnchorCell.x - cell.x
+                : cell.x > maxFootprintX ? cell.x - maxFootprintX : 0;
+            long distanceY = cell.y < placement.AnchorCell.y
+                ? (long)placement.AnchorCell.y - cell.y
+                : cell.y > maxFootprintY ? cell.y - maxFootprintY : 0;
+            if (System.Math.Max(distanceX, distanceY) <= radius)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public bool IsCellPathable(Vector2Int cell)
@@ -301,15 +506,20 @@ public class GridMap : MonoBehaviour
         }
 
         List<Vector2Int> availableCells = new List<Vector2Int>();
-        for (int x = 0; x < gridWidth; x++)
+        for (int xOffset = 0; xOffset < gridWidth; xOffset++)
         {
-            for (int y = 0; y < gridHeight; y++)
+            for (int yOffset = 0; yOffset < gridHeight; yOffset++)
             {
-                if (x != 0 && y != 0 && x != gridWidth - 1 && y != gridHeight - 1)
+                if (xOffset != 0
+                    && yOffset != 0
+                    && xOffset != gridWidth - 1
+                    && yOffset != gridHeight - 1)
                 {
                     continue;
                 }
 
+                int x = minimumCell.x + xOffset;
+                int y = minimumCell.y + yOffset;
                 Vector2Int cell = new Vector2Int(x, y);
                 if (IsCellPathable(cell) && !IsEnemyCellUnavailable(cell))
                 {
@@ -552,7 +762,7 @@ public class GridMap : MonoBehaviour
 
     private Vector2Int GetCellCoordinates(int cellIndex)
     {
-        return new Vector2Int(cellIndex % gridWidth, cellIndex / gridWidth);
+        return minimumCell + new Vector2Int(cellIndex % gridWidth, cellIndex / gridWidth);
     }
 
     private void ReconstructPath(
@@ -671,7 +881,7 @@ public class GridMap : MonoBehaviour
 
     private bool IsEnemyCellUnavailable(Vector2Int cell)
     {
-        if (enemyOccupants == null || enemyReservations == null)
+        if (!IsCellInBounds(cell) || enemyOccupants == null || enemyReservations == null)
         {
             return false;
         }
@@ -743,6 +953,12 @@ public class GridMap : MonoBehaviour
                     reason = $"Cell {cell} is occupied by an enemy.";
                     return false;
                 }
+
+                if (isInitialized && !IsCellBuildable(cell))
+                {
+                    reason = $"Cell {cell} is outside buildable territory.";
+                    return false;
+                }
             }
         }
 
@@ -762,7 +978,48 @@ public class GridMap : MonoBehaviour
             return false;
         }
 
+        if (!ExpandToIncludeBuildRadius(anchorCell, definition, out reason))
+        {
+            return false;
+        }
+
         return TryCreatePlacement(anchorCell, definition, out placedObject);
+    }
+
+    private bool ExpandToIncludeBuildRadius(
+        Vector2Int anchorCell,
+        PlaceableObjectDefinition definition,
+        out string reason)
+    {
+        reason = null;
+        if (definition.BuildRadius <= 0)
+        {
+            return true;
+        }
+
+        long minimumX = (long)anchorCell.x - definition.BuildRadius;
+        long minimumY = (long)anchorCell.y - definition.BuildRadius;
+        long maximumX = (long)anchorCell.x + definition.FootprintSideLength - 1 + definition.BuildRadius;
+        long maximumY = (long)anchorCell.y + definition.FootprintSideLength - 1 + definition.BuildRadius;
+        if (minimumX < int.MinValue
+            || minimumY < int.MinValue
+            || maximumX > int.MaxValue
+            || maximumY > int.MaxValue)
+        {
+            reason = "The buildable territory exceeds the supported grid coordinate range.";
+            return false;
+        }
+
+        Vector2Int minimumTerritoryCell = new Vector2Int((int)minimumX, (int)minimumY);
+        Vector2Int maximumTerritoryCell = new Vector2Int((int)maximumX, (int)maximumY);
+        if (!ExpandToInclude(minimumTerritoryCell)
+            || !ExpandToInclude(maximumTerritoryCell))
+        {
+            reason = "The grid could not expand to contain the building's buildable territory.";
+            return false;
+        }
+
+        return true;
     }
 
     private bool TryCreatePlacement(
@@ -802,6 +1059,11 @@ public class GridMap : MonoBehaviour
             {
                 behaviour.Initialize(this);
             }
+        }
+
+        if (definition.BuildRadius > 0)
+        {
+            RebuildGridlineDisplay();
         }
 
         return true;
@@ -931,11 +1193,13 @@ public class GridMap : MonoBehaviour
             return candidates;
         }
 
-        for (int x = 0; x <= gridWidth - footprintSideLength; x++)
+        for (int xOffset = 0; xOffset <= gridWidth - footprintSideLength; xOffset++)
         {
-            for (int y = 0; y <= gridHeight - footprintSideLength; y++)
+            for (int yOffset = 0; yOffset <= gridHeight - footprintSideLength; yOffset++)
             {
-                candidates.Add(new Vector2Int(x, y));
+                candidates.Add(new Vector2Int(
+                    minimumCell.x + xOffset,
+                    minimumCell.y + yOffset));
             }
         }
 
@@ -980,7 +1244,7 @@ public class GridMap : MonoBehaviour
 
     private int GetCellIndex(Vector2Int cell)
     {
-        return cell.y * gridWidth + cell.x;
+        return (cell.y - minimumCell.y) * gridWidth + cell.x - minimumCell.x;
     }
 
     public bool RemoveObject(GameObject placedObject)
@@ -992,6 +1256,8 @@ public class GridMap : MonoBehaviour
         }
 
         PlacementData placement = placements[placementIndex];
+        bool expandsBuildableArea =
+            placement.Definition != null && placement.Definition.BuildRadius > 0;
         BehaviourScript[] behaviours =
             placedObject.GetComponentsInChildren<BehaviourScript>(true);
         foreach (BehaviourScript behaviour in behaviours)
@@ -1013,6 +1279,11 @@ public class GridMap : MonoBehaviour
         placementIndexByInstance.Remove(placedObject);
         placements[placementIndex] = default;
         Destroy(placedObject);
+        if (expandsBuildableArea)
+        {
+            RebuildGridlineDisplay();
+        }
+
         return true;
     }
 }

@@ -606,6 +606,8 @@ MonoBehaviour:
   placeableObjectList:
   - {fileID: 11400000, guid: 18796fbfbeaa25547a70157b915765c0, type: 2}
   - {fileID: 11400000, guid: ef8aa2b61962ad749990c981c42f77a2, type: 2}
+  - {fileID: 11400000, guid: 28934930a2438a54e851fd2f16cc379b, type: 2}
+  - {fileID: 11400000, guid: 7734e32d185e38f43a5cbac75e85db2a, type: 2}
   enemySettings: {fileID: 11400000, guid: 9e3e20ae45b736a4c99ca1e9a23879e9, type: 2}
   towerSelectionMenu: {fileID: 525578439}
 --- !u!4 &525578437
@@ -931,6 +933,7 @@ MonoBehaviour:
   gridWidth: 20
   gridHeight: 20
   cellSize: 1
+  expansionMargin: 5
   origin: {x: 0, y: 0, z: 0}
   populationSettings: {fileID: 11400000, guid: 831b934db86046a4a0e613e0c97b41b3, type: 2}
   gridLineMaterial: {fileID: 0}
