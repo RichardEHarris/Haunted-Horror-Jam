@@ -581,6 +581,7 @@ GameObject:
   - component: {fileID: 525578436}
   - component: {fileID: 525578438}
   - component: {fileID: 525578439}
+  - component: {fileID: 525578440}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -608,7 +609,6 @@ MonoBehaviour:
   - {fileID: 11400000, guid: ef8aa2b61962ad749990c981c42f77a2, type: 2}
   - {fileID: 11400000, guid: 28934930a2438a54e851fd2f16cc379b, type: 2}
   - {fileID: 11400000, guid: 7734e32d185e38f43a5cbac75e85db2a, type: 2}
-  enemySettings: {fileID: 11400000, guid: 9e3e20ae45b736a4c99ca1e9a23879e9, type: 2}
   towerSelectionMenu: {fileID: 525578439}
 --- !u!4 &525578437
 Transform:
@@ -652,6 +652,25 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TowerSelectionMenu
   TowerSelectionUI: {fileID: 1184841705}
   TowerButtonPrefab: {fileID: 6463284419333516928, guid: 978340df26992cd40a21679c882d2fcc, type: 3}
+--- !u!114 &525578440
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 525578435}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 34e6419c37ef5f84a90fa9db9cf1af94, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WaveManager
+  gridMap: {fileID: 1029092689}
+  gameManager: {fileID: 525578436}
+  waves:
+  - {fileID: 11400000, guid: e41eb72c9906e2e40959b028b63cc4bb, type: 2}
+  - {fileID: 11400000, guid: 27959154909a47044a19406b6785bb6b, type: 2}
+  - {fileID: 11400000, guid: 19db846134302c240b5aeac1d966db97, type: 2}
+  - {fileID: 11400000, guid: 7c0c5f6bd72f6a842b25b00815fd434b, type: 2}
 --- !u!1 &675831730
 GameObject:
   m_ObjectHideFlags: 0
@@ -938,6 +957,7 @@ MonoBehaviour:
   populationSettings: {fileID: 11400000, guid: 831b934db86046a4a0e613e0c97b41b3, type: 2}
   gridLineMaterial: {fileID: 0}
   gridLineColor: {r: 1, g: 1, b: 1, a: 1}
+  unbuildableGridLineColor: {r: 1, g: 0, b: 0, a: 1}
   gridLineWidth: 0.02
   gridLineHeightOffset: 0.01
   gridLinesVisibleAtStart: 1
