@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
@@ -149,7 +150,13 @@ public class TowerSelectionMenu : MonoBehaviour
         //labelLayoutElement.flexibleWidth = 1f;
         //labelLayoutElement.preferredHeight = TowerIconSize;
 
-        Text label = labelObject.GetComponentInChildren<Text>();
+        TMP_Text label = labelObject.GetComponentInChildren<TMP_Text>();
+        if (label == null)
+        {
+            Debug.LogError($"Tower button prefab '{buttonObject.name}' needs a TMP text label.", buttonObject);
+            return;
+        }
+
         label.text = $"{definition.ObjectName}\nCost: {definition.Cost}";
 
         menuEntries.Add(new MenuEntry
@@ -166,11 +173,10 @@ public class TowerSelectionMenu : MonoBehaviour
         layoutElement.preferredWidth = 320f;
         layoutElement.preferredHeight = 92f;
 
-        Text emptyState = emptyStateTransform.gameObject.AddComponent<Text>();
-        emptyState.material = Graphic.defaultGraphicMaterial;
-        emptyState.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        TMP_Text emptyState = emptyStateTransform.gameObject.AddComponent<TextMeshProUGUI>();
+        emptyState.font = TMP_Settings.defaultFontAsset;
         emptyState.fontSize = 20;
-        emptyState.alignment = TextAnchor.MiddleLeft;
+        emptyState.alignment = TextAlignmentOptions.MidlineLeft;
         emptyState.color = Color.white;
         emptyState.text = "No towers available";
     }

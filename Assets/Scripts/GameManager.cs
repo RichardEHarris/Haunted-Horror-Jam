@@ -3,6 +3,7 @@ using UnityEngine;
 
 public class GameManager : MonoBehaviour
 {
+    [SerializeField, Min(0.01f)] private float maxHealth = 100f;
     [SerializeField] private float health = 100f;
     [SerializeField] private int currency = 0;
     [SerializeField] private GridMap gridMap;
@@ -10,14 +11,17 @@ public class GameManager : MonoBehaviour
     private List<PlaceableObjectDefinition> placeableObjectList =
         new List<PlaceableObjectDefinition>();
     [SerializeField] private TowerSelectionMenu towerSelectionMenu;
+    [SerializeField] private WaveManager waveManager;
 
     private PlaceableObjectDefinition selectedPlaceableObject;
 
     private void Awake()
     {
-        if (gridMap == null)
-            gridMap = FindAnyObjectByType<GridMap>();
-        if (gridMap == null)
+        health = Mathf.Clamp(health, 0f, maxHealth);
+
+        if (GridMap == null)
+            GridMap = FindAnyObjectByType<GridMap>();
+        if (GridMap == null)
         {
             Debug.LogError("No GridMap is assigned to the GameManager.", this);
         }
@@ -44,13 +48,24 @@ public class GameManager : MonoBehaviour
             towerSelectionMenu = GetComponent<TowerSelectionMenu>();
         }
 
-        towerSelectionMenu.Initialize(this);
+        if (towerSelectionMenu != null)
+        {
+            towerSelectionMenu.Initialize(this);
+        }
+
+        if (waveManager == null)
+        {
+            waveManager = GetComponent<WaveManager>();
+        }
     }
 
     public float Health => health;
+    public float MaxHealth => maxHealth;
     public int Currency => currency;
     public IReadOnlyList<PlaceableObjectDefinition> PlaceableObjects => placeableObjectList;
     public PlaceableObjectDefinition SelectedPlaceableObject => selectedPlaceableObject;
+
+    public GridMap GridMap { get => gridMap; set => gridMap = value; }
 
     public bool SelectPlaceableObject(PlaceableObjectDefinition definition)
     {
@@ -76,7 +91,7 @@ public class GameManager : MonoBehaviour
             return;
         }
 
-        health = Mathf.Max(0f, health - damage);
+        health = Mathf.Clamp(health - damage, 0f, maxHealth);
     }
 
     public void AddCurrency(int amount)
@@ -95,9 +110,15 @@ public class GameManager : MonoBehaviour
         
     }
 
+    private void OnValidate()
+    {
+        maxHealth = Mathf.Max(0.01f, maxHealth);
+        health = Mathf.Clamp(health, 0f, maxHealth);
+    }
+
     public void ToggleGridlines()
     {
-        gridMap.ToggleGridlines();
+        GridMap.ToggleGridlines();
     }
 
     public bool PlaceSelectedObject(
@@ -105,7 +126,7 @@ public class GameManager : MonoBehaviour
         Camera placementCamera,
         out string failureReason)
     {
-        if (gridMap == null)
+        if (GridMap == null)
         {
             failureReason = "No GridMap is assigned to the GameManager.";
             return false;
@@ -124,7 +145,7 @@ public class GameManager : MonoBehaviour
         }
 
         Ray pointerRay = placementCamera.ScreenPointToRay(screenPosition);
-        Plane gridPlane = new Plane(Vector3.up, gridMap.Origin);
+        Plane gridPlane = new Plane(Vector3.up, GridMap.Origin);
         if (!gridPlane.Raycast(pointerRay, out float distance))
         {
             failureReason = "The pointer ray does not intersect the grid plane.";
@@ -132,8 +153,8 @@ public class GameManager : MonoBehaviour
         }
 
         Vector3 worldPosition = pointerRay.GetPoint(distance);
-        Vector2Int targetCell = gridMap.WorldPositionToCell(worldPosition);
-        if (!gridMap.TryPlaceObject(
+        Vector2Int targetCell = GridMap.WorldPositionToCell(worldPosition);
+        if (!GridMap.TryPlaceObject(
                 targetCell,
                 selectedPlaceableObject,
                 out _,

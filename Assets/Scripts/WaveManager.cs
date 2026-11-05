@@ -4,34 +4,36 @@ using UnityEngine;
 
 public class WaveManager : MonoBehaviour
 {
-    [SerializeField] private GridMap gridMap;
+    private GridMap gridMap;
     [SerializeField] private GameManager gameManager;
     [SerializeField] private List<WaveDefinition> waves = new List<WaveDefinition>();
 
     private readonly Dictionary<GridEnemySettings, System.Random> randomByEnemySettings =
         new Dictionary<GridEnemySettings, System.Random>();
+    private bool skipWaveTimerRequested;
+
+    public int CurrentWaveNumber { get; private set; }
+    public string CurrentWaveTitle { get; private set; }
+    public float TimeUntilNextWave { get; private set; }
+    public bool CanSkipWaveTimer { get; private set; }
 
     private void Start()
     {
-        if (gridMap == null)
-        {
-            gridMap = FindAnyObjectByType<GridMap>();
-        }
-
         if (gameManager == null)
         {
             gameManager = FindAnyObjectByType<GameManager>();
         }
 
-        if (gridMap == null)
-        {
-            Debug.LogError("Cannot start enemy waves because no GridMap is available.", this);
-            return;
-        }
-
         if (gameManager == null)
         {
             Debug.LogError("Cannot start enemy waves because no GameManager is available.", this);
+            return;
+        }
+
+        gridMap = gameManager.GridMap;
+        if (gridMap == null)
+        {
+            Debug.LogError("Cannot start enemy waves because no GridMap is available.", this);
             return;
         }
 
@@ -42,6 +44,14 @@ public class WaveManager : MonoBehaviour
         }
 
         StartCoroutine(SpawnWaves());
+    }
+
+    public void SkipWaveTimer()
+    {
+        if (CanSkipWaveTimer)
+        {
+            skipWaveTimerRequested = true;
+        }
     }
 
     private IEnumerator SpawnWaves()
@@ -61,10 +71,24 @@ public class WaveManager : MonoBehaviour
                 continue;
             }
 
+            CurrentWaveNumber = waveIndex + 1;
+            CurrentWaveTitle = wave.WaveTitle;
+            CanSkipWaveTimer = waveIndex < waves.Count - 1;
+            TimeUntilNextWave = CanSkipWaveTimer ? wave.Duration : 0f;
+            skipWaveTimerRequested = false;
+
             Debug.Log($"Starting wave {waveIndex + 1}: {wave.WaveTitle}", this);
             SpawnWaveEnemies(wave);
-            yield return new WaitForSeconds(wave.Duration);
+
+            while (CanSkipWaveTimer && TimeUntilNextWave > 0f && !skipWaveTimerRequested)
+            {
+                yield return null;
+                TimeUntilNextWave = Mathf.Max(0f, TimeUntilNextWave - Time.deltaTime);
+            }
         }
+
+        CanSkipWaveTimer = false;
+        TimeUntilNextWave = 0f;
     }
 
     private void SpawnWaveEnemies(WaveDefinition wave)
