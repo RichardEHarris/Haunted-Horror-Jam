@@ -30,7 +30,6 @@ public class GridMap : MonoBehaviour
 
     private int[] cellPlacementIndices;
     private GridEnemy[] enemyOccupants;
-    private GridEnemy[] enemyReservations;
     private Vector2Int minimumCell;
     private Vector3 gridAnchorWorldPosition;
     private readonly HashSet<GridEnemy> activeEnemies = new HashSet<GridEnemy>();
@@ -93,7 +92,6 @@ public class GridMap : MonoBehaviour
             -gridHeight * cellSize * 0.5f);
         cellPlacementIndices = new int[gridWidth * gridHeight];
         enemyOccupants = new GridEnemy[cellPlacementIndices.Length];
-        enemyReservations = new GridEnemy[cellPlacementIndices.Length];
         CreateGridlineDisplay();
         SetGridlinesVisible(gridLinesVisibleAtStart);
         PopulateInitialObjects();
@@ -385,7 +383,6 @@ public class GridMap : MonoBehaviour
         int expandedCellCount = expandedWidth * expandedHeight;
         int[] expandedPlacementIndices = new int[expandedCellCount];
         GridEnemy[] expandedEnemyOccupants = new GridEnemy[expandedCellCount];
-        GridEnemy[] expandedEnemyReservations = new GridEnemy[expandedCellCount];
 
         for (int y = 0; y < gridHeight; y++)
         {
@@ -403,12 +400,6 @@ public class GridMap : MonoBehaviour
                 expandedEnemyOccupants,
                 newRowStart,
                 gridWidth);
-            System.Array.Copy(
-                enemyReservations,
-                oldRowStart,
-                expandedEnemyReservations,
-                newRowStart,
-                gridWidth);
         }
 
         minimumCell = new Vector2Int(expandedMinX, expandedMinY);
@@ -416,7 +407,6 @@ public class GridMap : MonoBehaviour
         gridHeight = expandedHeight;
         cellPlacementIndices = expandedPlacementIndices;
         enemyOccupants = expandedEnemyOccupants;
-        enemyReservations = expandedEnemyReservations;
         RebuildGridlineDisplay();
         return true;
     }
@@ -643,8 +633,7 @@ public class GridMap : MonoBehaviour
             {
                 Vector2Int neighbour = currentCell + CardinalDirections[directionIndex];
                 bool isBaseDestination = IsBaseMachineCell(neighbour);
-                if ((!isBaseDestination && !IsCellPathable(neighbour))
-                    || IsEnemyCellUnavailableForPath(neighbour, enemy))
+                if (!isBaseDestination && !IsCellPathable(neighbour))
                 {
                     continue;
                 }
@@ -810,15 +799,11 @@ public class GridMap : MonoBehaviour
 
         if (IsBaseMachineCell(toCell))
         {
-            return enemyReservations[toIndex] == null;
+            return true;
         }
 
-        if (enemyReservations[toIndex] != null)
-        {
-            return false;
-        }
-
-        enemyReservations[toIndex] = enemy;
+        enemyOccupants[fromIndex] = null;
+        enemyOccupants[toIndex] = enemy;
         return true;
     }
 
@@ -831,26 +816,18 @@ public class GridMap : MonoBehaviour
 
         int fromIndex = GetCellIndex(fromCell);
         int toIndex = GetCellIndex(toCell);
-        if (enemyOccupants[fromIndex] != enemy)
-        {
-            return false;
-        }
-
         if (IsBaseMachineCell(toCell))
         {
+            if (enemyOccupants[fromIndex] != enemy)
+            {
+                return false;
+            }
+
             enemyOccupants[fromIndex] = null;
             return true;
         }
 
-        if (enemyReservations[toIndex] != enemy)
-        {
-            return false;
-        }
-
-        enemyOccupants[fromIndex] = null;
-        enemyReservations[toIndex] = null;
-        enemyOccupants[toIndex] = enemy;
-        return true;
+        return enemyOccupants[toIndex] == enemy;
     }
 
     public void UnregisterEnemy(GridEnemy enemy, Vector2Int currentCell)
@@ -870,36 +847,24 @@ public class GridMap : MonoBehaviour
             }
         }
 
-        for (int i = 0; i < enemyReservations.Length; i++)
+        for (int i = 0; i < enemyOccupants.Length; i++)
         {
-            if (enemyReservations[i] == enemy)
+            if (enemyOccupants[i] == enemy)
             {
-                enemyReservations[i] = null;
+                enemyOccupants[i] = null;
             }
         }
     }
 
     private bool IsEnemyCellUnavailable(Vector2Int cell)
     {
-        if (!IsCellInBounds(cell) || enemyOccupants == null || enemyReservations == null)
+        if (!IsCellInBounds(cell) || enemyOccupants == null)
         {
             return false;
         }
 
         int cellIndex = GetCellIndex(cell);
-        return enemyOccupants[cellIndex] != null || enemyReservations[cellIndex] != null;
-    }
-
-    private bool IsEnemyCellUnavailableForPath(Vector2Int cell, GridEnemy movingEnemy)
-    {
-        if (enemyOccupants == null || enemyReservations == null)
-        {
-            return false;
-        }
-
-        int cellIndex = GetCellIndex(cell);
-        return (enemyOccupants[cellIndex] != null && enemyOccupants[cellIndex] != movingEnemy)
-            || (enemyReservations[cellIndex] != null && enemyReservations[cellIndex] != movingEnemy);
+        return enemyOccupants[cellIndex] != null;
     }
 
     public bool IsValidPlacement(Vector2Int anchorCell, PlaceableObjectDefinition definition)
