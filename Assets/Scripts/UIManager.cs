@@ -13,7 +13,7 @@ public class UIManager : MonoBehaviour
     [SerializeField] private GameObject waveTitleDisplay;
     [SerializeField] private GameObject waveSkipButton;
 
-    private Image healthBarImage;
+    private RectTransform healthBarFill;
     private TMP_Text healthText;
     private TMP_Text currencyText;
     private TMP_Text waveCountdownText;
@@ -56,10 +56,10 @@ public class UIManager : MonoBehaviour
         }
         else
         {
-            healthBarImage = healthBar.GetComponent<Image>();
-            if (healthBarImage == null)
+            healthBarFill = healthBar.GetComponent<RectTransform>();
+            if (healthBarFill == null)
             {
-                Debug.LogError("Health bar UI element must have an Image component.", healthBar);
+                Debug.LogError("Health bar UI element must have a RectTransform component.", healthBar);
             }
         }
 
@@ -136,9 +136,10 @@ public class UIManager : MonoBehaviour
             }
         }
 
-        if (healthBarImage != null)
+        float healthBarWidth = healthBar.transform.parent.GetComponent<RectTransform>()?.sizeDelta.x ?? 200f;
+        if (healthBarFill != null)
         {
-            healthBarImage.fillAmount = gameManager.Health / gameManager.MaxHealth;
+            healthBarFill.sizeDelta = new Vector2(Mathf.Clamp01(gameManager.Health / gameManager.MaxHealth) * healthBarWidth, healthBarFill.sizeDelta.y);
         }
     }
 

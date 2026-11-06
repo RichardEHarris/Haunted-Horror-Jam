@@ -15,7 +15,7 @@ MonoBehaviour:
   enemyPrefab: {fileID: 6466983988474564972, guid: ff79dfddb6b816e48b7f31576bd764c9, type: 3}
   seed: 5357
   movementSpeed: 1.5
-  retryInterval: 1
+  retryInterval: 0.2
   baseMachineDamage: 20
   maxHealth: 50
   currencyReward: 10

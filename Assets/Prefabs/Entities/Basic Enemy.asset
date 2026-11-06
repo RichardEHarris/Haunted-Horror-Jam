@@ -13,7 +13,9 @@ MonoBehaviour:
   m_Name: Basic Enemy
   m_EditorClassIdentifier: Assembly-CSharp::GridEnemySettings
   enemyPrefab: {fileID: 6466983988474564972, guid: bea5ad0747ac17143b2ff6ba69ce2742, type: 3}
-  initialEnemyCount: 4
   seed: 24680
   movementSpeed: 2
-  retryInterval: 1
+  retryInterval: 0.2
+  baseMachineDamage: 10
+  maxHealth: 10
+  currencyReward: 5
