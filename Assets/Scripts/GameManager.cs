@@ -5,7 +5,7 @@ public class GameManager : MonoBehaviour
 {
     [SerializeField, Min(0.01f)] private float maxHealth = 100f;
     [SerializeField] private float health = 100f;
-    [SerializeField] private int currency = 0;
+    [SerializeField] private int currency = 5;
     [SerializeField] private GridMap gridMap;
     [SerializeField]
     private List<PlaceableObjectDefinition> placeableObjectList =
@@ -14,6 +14,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private WaveManager waveManager;
 
     private PlaceableObjectDefinition selectedPlaceableObject;
+    [SerializeField, Range(-1f, 1f)] private float refundMultiplier = 0.5f;
 
     private void Awake()
     {
@@ -138,6 +139,21 @@ public class GameManager : MonoBehaviour
             return false;
         }
 
+        if (selectedPlaceableObject.Cost < 0)
+        {
+            Debug.LogError(
+                $"Placeable object '{selectedPlaceableObject.ObjectName}' has a negative cost.",
+                selectedPlaceableObject);
+            failureReason = "The selected object has an invalid cost.";
+            return false;
+        }
+
+        if (currency < selectedPlaceableObject.Cost)
+        {
+            failureReason = "Not enough currency to place the selected object.";
+            return false;
+        }
+
         if (placementCamera == null)
         {
             failureReason = "No placement camera is available.";
@@ -154,7 +170,7 @@ public class GameManager : MonoBehaviour
 
         Vector3 worldPosition = pointerRay.GetPoint(distance);
         Vector2Int targetCell = GridMap.WorldPositionToCell(worldPosition);
-        if (!GridMap.TryPlaceObject(
+        if (!GridMap.TryPlacePlayerObject(
                 targetCell,
                 selectedPlaceableObject,
                 out _,
@@ -163,6 +179,64 @@ public class GameManager : MonoBehaviour
             return false;
         }
 
+        currency -= selectedPlaceableObject.Cost;
+        failureReason = null;
+        return true;
+    }
+
+    public bool SellPlacedObject(
+        Vector2 screenPosition,
+        Camera placementCamera,
+        out string failureReason)
+    {
+        if (GridMap == null)
+        {
+            failureReason = "No GridMap is assigned to the GameManager.";
+            return false;
+        }
+
+        if (placementCamera == null)
+        {
+            failureReason = "No placement camera is available.";
+            return false;
+        }
+
+        Ray pointerRay = placementCamera.ScreenPointToRay(screenPosition);
+        Plane gridPlane = new Plane(Vector3.up, GridMap.Origin);
+        if (!gridPlane.Raycast(pointerRay, out float distance))
+        {
+            failureReason = "The pointer ray does not intersect the grid plane.";
+            return false;
+        }
+
+        Vector3 worldPosition = pointerRay.GetPoint(distance);
+        Vector2Int targetCell = GridMap.WorldPositionToCell(worldPosition);
+        if (!GridMap.TryGetPlayerPlacedObjectAtCell(
+                targetCell,
+                out GameObject placedObject,
+                out PlaceableObjectDefinition definition))
+        {
+            failureReason = "There is no player-placed object to sell at this location.";
+            return false;
+        }
+
+        if (definition.Cost < 0)
+        {
+            Debug.LogError(
+                $"Placeable object '{definition.ObjectName}' has a negative cost.",
+                definition);
+            failureReason = "The selected object has an invalid sale value.";
+            return false;
+        }
+
+        if (!GridMap.RemoveObject(placedObject))
+        {
+            failureReason = "The selected object could not be removed.";
+            return false;
+        }
+
+        int refund = definition.Cost > 0 ? Mathf.CeilToInt(definition.Cost * refundMultiplier) : 0;
+        AddCurrency(refund);
         failureReason = null;
         return true;
     }

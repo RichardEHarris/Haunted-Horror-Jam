@@ -10,6 +10,13 @@ public class PlayerManager : MonoBehaviour
     private Camera placementCamera;
     private InputAction displayGridlinesAction;
 
+    public bool IsSellMode { get; private set; }
+
+    public void TogglePlacementSellMode()
+    {
+        IsSellMode = !IsSellMode;
+    }
+
     private void Awake()
     {
         if (gameManager == null)
@@ -55,12 +62,27 @@ public class PlayerManager : MonoBehaviour
             && (EventSystem.current == null || !EventSystem.current.IsPointerOverGameObject()))
         {
             Vector2 screenPosition = Mouse.current.position.ReadValue();
-            if (!gameManager.PlaceSelectedObject(
+            string failureReason;
+            bool succeeded;
+            if (IsSellMode)
+            {
+                succeeded = gameManager.SellPlacedObject(
                     screenPosition,
                     placementCamera,
-                    out string failureReason))
+                    out failureReason);
+            }
+            else
             {
-                Debug.LogWarning($"Tower placement failed: {failureReason}", this);
+                succeeded = gameManager.PlaceSelectedObject(
+                    screenPosition,
+                    placementCamera,
+                    out failureReason);
+            }
+
+            if (!succeeded)
+            {
+                string action = IsSellMode ? "Object sale" : "Tower placement";
+                Debug.LogWarning($"{action} failed: {failureReason}", this);
             }
         }
     }

@@ -24,8 +24,10 @@ public class GridMap : MonoBehaviour
     private struct PlacementData
     {
         public PlaceableObjectDefinition Definition;
+        public GameObject Instance;
         public Vector2Int AnchorCell;
         public int FootprintSideLength;
+        public bool IsPlayerPlaced;
     }
 
     private int[] cellPlacementIndices;
@@ -936,6 +938,25 @@ public class GridMap : MonoBehaviour
         PlaceableObjectDefinition definition,
         out GameObject placedObject, out string reason)
     {
+        return TryPlaceObject(anchorCell, definition, false, out placedObject, out reason);
+    }
+
+    public bool TryPlacePlayerObject(
+        Vector2Int anchorCell,
+        PlaceableObjectDefinition definition,
+        out GameObject placedObject,
+        out string reason)
+    {
+        return TryPlaceObject(anchorCell, definition, true, out placedObject, out reason);
+    }
+
+    private bool TryPlaceObject(
+        Vector2Int anchorCell,
+        PlaceableObjectDefinition definition,
+        bool isPlayerPlaced,
+        out GameObject placedObject,
+        out string reason)
+    {
         placedObject = null;
         reason = null;
         if (!IsValidPlacement(anchorCell, definition, out reason))
@@ -948,7 +969,7 @@ public class GridMap : MonoBehaviour
             return false;
         }
 
-        return TryCreatePlacement(anchorCell, definition, out placedObject);
+        return TryCreatePlacement(anchorCell, definition, isPlayerPlaced, out placedObject);
     }
 
     private bool ExpandToIncludeBuildRadius(
@@ -990,6 +1011,7 @@ public class GridMap : MonoBehaviour
     private bool TryCreatePlacement(
         Vector2Int anchorCell,
         PlaceableObjectDefinition definition,
+        bool isPlayerPlaced,
         out GameObject placedObject)
     {
         Vector3 worldPosition = GetObjectWorldPosition(
@@ -1005,8 +1027,10 @@ public class GridMap : MonoBehaviour
         placements.Add(new PlacementData
         {
             Definition = definition,
+            Instance = placedObject,
             AnchorCell = anchorCell,
-            FootprintSideLength = definition.FootprintSideLength
+            FootprintSideLength = definition.FootprintSideLength,
+            IsPlayerPlaced = isPlayerPlaced
         });
         placementIndexByInstance.Add(placedObject, placementIndex);
 
@@ -1210,6 +1234,35 @@ public class GridMap : MonoBehaviour
     private int GetCellIndex(Vector2Int cell)
     {
         return (cell.y - minimumCell.y) * gridWidth + cell.x - minimumCell.x;
+    }
+
+    public bool TryGetPlayerPlacedObjectAtCell(
+        Vector2Int cell,
+        out GameObject placedObject,
+        out PlaceableObjectDefinition definition)
+    {
+        placedObject = null;
+        definition = null;
+        if (!IsCellInBounds(cell))
+        {
+            return false;
+        }
+
+        int placementIndex = cellPlacementIndices[GetCellIndex(cell)] - 1;
+        if (placementIndex < 0 || placementIndex >= placements.Count)
+        {
+            return false;
+        }
+
+        PlacementData placement = placements[placementIndex];
+        if (!placement.IsPlayerPlaced || placement.Definition == null || placement.Instance == null)
+        {
+            return false;
+        }
+
+        placedObject = placement.Instance;
+        definition = placement.Definition;
+        return true;
     }
 
     public bool RemoveObject(GameObject placedObject)

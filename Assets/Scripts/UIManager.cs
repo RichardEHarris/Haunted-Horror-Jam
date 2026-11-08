@@ -6,12 +6,14 @@ public class UIManager : MonoBehaviour
 {
     [SerializeField] private GameManager gameManager;
     private WaveManager waveManager;
+    private PlayerManager playerManager;
     [SerializeField] private GameObject healthBar;
     [SerializeField] private GameObject healthDisplay;
     [SerializeField] private GameObject currencyDisplay;
     [SerializeField] private GameObject waveDisplay;
     [SerializeField] private GameObject waveTitleDisplay;
     [SerializeField] private GameObject waveSkipButton;
+    [SerializeField] private GameObject sellToggleButton;
 
     private RectTransform healthBarFill;
     private TMP_Text healthText;
@@ -19,6 +21,8 @@ public class UIManager : MonoBehaviour
     private TMP_Text waveCountdownText;
     private TMP_Text waveTitleText;
     private Button skipButton;
+    private Button sellButton;
+    private TMP_Text sellButtonText;
     private int displayedHealth = int.MinValue;
     private int displayedCurrency = int.MinValue;
     private int displayedWaveNumber = int.MinValue;
@@ -37,6 +41,12 @@ public class UIManager : MonoBehaviour
         {
             Debug.LogError("UIManager requires a GameManager.", this);
             return;
+        }
+
+        playerManager = gameManager.GetComponent<PlayerManager>();
+        if (playerManager == null)
+        {
+            Debug.LogError("UIManager requires a PlayerManager on the GameManager object.", this);
         }
 
         waveManager = gameManager.GetComponent<WaveManager>();
@@ -90,9 +100,33 @@ public class UIManager : MonoBehaviour
             }
         }
 
+        if (sellToggleButton == null)
+        {
+            Debug.LogError("Sell mode toggle button is not assigned.", this);
+        }
+        else
+        {
+            sellButton = sellToggleButton.GetComponent<Button>();
+            if (sellButton == null)
+            {
+                Debug.LogError("Sell mode toggle object must have a Button component.", sellToggleButton);
+            }
+            else if (playerManager != null)
+            {
+                sellButton.onClick.AddListener(playerManager.TogglePlacementSellMode);
+            }
+
+            sellButtonText = sellToggleButton.GetComponentInChildren<TMP_Text>();
+            if (sellButtonText == null)
+            {
+                Debug.LogError("Sell mode toggle button must contain a TextMeshPro label.", sellToggleButton);
+            }
+        }
+
         RefreshHealth();
         RefreshCurrency();
         RefreshWaveDisplay();
+        RefreshSellModeDisplay();
     }
 
     private void Update()
@@ -105,6 +139,7 @@ public class UIManager : MonoBehaviour
         RefreshHealth();
         RefreshCurrency();
         RefreshWaveDisplay();
+        RefreshSellModeDisplay();
     }
 
     private static TMP_Text GetTextComponent(GameObject target, string label)
@@ -136,9 +171,9 @@ public class UIManager : MonoBehaviour
             }
         }
 
-        float healthBarWidth = healthBar.transform.parent.GetComponent<RectTransform>()?.sizeDelta.x ?? 200f;
-        if (healthBarFill != null)
+        if (healthBarFill != null && healthBarFill.parent is RectTransform healthBarBackground)
         {
+            float healthBarWidth = healthBarBackground.sizeDelta.x;
             healthBarFill.sizeDelta = new Vector2(Mathf.Clamp01(gameManager.Health / gameManager.MaxHealth) * healthBarWidth, healthBarFill.sizeDelta.y);
         }
     }
@@ -189,11 +224,46 @@ public class UIManager : MonoBehaviour
         }
     }
 
+    private void RefreshSellModeDisplay()
+    {
+        if (playerManager == null || sellButtonText == null)
+        {
+            return;
+        }
+
+        sellButton.colors = playerManager.IsSellMode
+            ? new ColorBlock
+            {
+                normalColor = Color.red,
+                highlightedColor = Color.red * 1.2f,
+                pressedColor = Color.red * 0.8f,
+                selectedColor = Color.red,
+                disabledColor = Color.gray,
+                colorMultiplier = 1f,
+                fadeDuration = 0.1f
+            }
+            : new ColorBlock
+            {
+                normalColor = Color.white,
+                highlightedColor = Color.white * 1.2f,
+                pressedColor = Color.white * 0.8f,
+                selectedColor = Color.white,
+                disabledColor = Color.gray,
+                colorMultiplier = 1f,
+                fadeDuration = 0.1f
+            };
+    }
+
     private void OnDestroy()
     {
         if (skipButton != null && waveManager != null)
         {
             skipButton.onClick.RemoveListener(waveManager.SkipWaveTimer);
+        }
+
+        if (sellButton != null && playerManager != null)
+        {
+            sellButton.onClick.RemoveListener(playerManager.TogglePlacementSellMode);
         }
     }
 }
