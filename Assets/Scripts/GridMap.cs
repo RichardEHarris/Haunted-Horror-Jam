@@ -572,12 +572,11 @@ public class GridMap : MonoBehaviour
     }
 
     public bool TryFindPathToBase(
-        GridEnemy enemy,
         Vector2Int startCell,
         List<Vector2Int> path)
     {
         path.Clear();
-        if (enemy == null || !IsCellInBounds(startCell))
+        if (!IsCellInBounds(startCell))
         {
             return false;
         }
@@ -964,12 +963,99 @@ public class GridMap : MonoBehaviour
             return false;
         }
 
+        if (isPlayerPlaced
+            && definition.PathingTag == GridObjectPathingTag.PathingBlocker
+            && !PreservesEnemyPaths(anchorCell, definition, out reason))
+        {
+            return false;
+        }
+
         if (!ExpandToIncludeBuildRadius(anchorCell, definition, out reason))
         {
             return false;
         }
 
         return TryCreatePlacement(anchorCell, definition, isPlayerPlaced, out placedObject);
+    }
+
+    private bool PreservesEnemyPaths(
+        Vector2Int anchorCell,
+        PlaceableObjectDefinition definition,
+        out string reason)
+    {
+        int placementIndex = placements.Count;
+        placements.Add(new PlacementData
+        {
+            Definition = definition,
+            AnchorCell = anchorCell,
+            FootprintSideLength = definition.FootprintSideLength
+        });
+
+        for (int x = 0; x < definition.FootprintSideLength; x++)
+        {
+            for (int y = 0; y < definition.FootprintSideLength; y++)
+            {
+                Vector2Int cell = anchorCell + new Vector2Int(x, y);
+                cellPlacementIndices[GetCellIndex(cell)] = placementIndex + 1;
+            }
+        }
+
+        try
+        {
+            List<Vector2Int> path = new List<Vector2Int>();
+            foreach (GridEnemy enemy in activeEnemies)
+            {
+                if (enemy != null
+                    && enemy.IsAlive
+                    && !TryFindPathToBase(enemy.CurrentCell, path))
+                {
+                    reason = "This placement would block an active enemy's path to the Base Machine.";
+                    return false;
+                }
+            }
+
+            for (int xOffset = 0; xOffset < gridWidth; xOffset++)
+            {
+                for (int yOffset = 0; yOffset < gridHeight; yOffset++)
+                {
+                    if (xOffset != 0
+                        && yOffset != 0
+                        && xOffset != gridWidth - 1
+                        && yOffset != gridHeight - 1)
+                    {
+                        continue;
+                    }
+
+                    Vector2Int edgeCell = minimumCell + new Vector2Int(xOffset, yOffset);
+                    if (!IsCellPathable(edgeCell))
+                    {
+                        continue;
+                    }
+
+                    if (!TryFindPathToBase(edgeCell, path))
+                    {
+                        reason = "This placement would block an enemy spawn path to the Base Machine.";
+                        return false;
+                    }
+                }
+            }
+        }
+        finally
+        {
+            for (int x = 0; x < definition.FootprintSideLength; x++)
+            {
+                for (int y = 0; y < definition.FootprintSideLength; y++)
+                {
+                    Vector2Int cell = anchorCell + new Vector2Int(x, y);
+                    cellPlacementIndices[GetCellIndex(cell)] = 0;
+                }
+            }
+
+            placements.RemoveAt(placementIndex);
+        }
+
+        reason = null;
+        return true;
     }
 
     private bool ExpandToIncludeBuildRadius(

@@ -80,7 +80,7 @@ public class GridEnemy : MonoBehaviour
                 yield break;
             }
 
-            if (!gridMap.TryFindPathToBase(this, currentCell, path) || path.Count == 0)
+            if (!gridMap.TryFindPathToBase(currentCell, path) || path.Count == 0)
             {
                 yield return retryWait;
                 continue;
